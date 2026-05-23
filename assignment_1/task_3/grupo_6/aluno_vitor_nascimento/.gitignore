@@ -8,3 +8,5 @@
 .terraform.lock.hcl
 
 !*.tfvars.example
+
+.ipynb_checkpoints

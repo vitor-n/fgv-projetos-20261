@@ -143,6 +143,32 @@ resource "aws_glue_job" "etl_job" {
   connections = [aws_glue_connection.rds_connection.name]
 }
 
+resource "aws_glue_catalog_database" "aws_glue_db" {
+  name = "classicmodels_star_schema"
+}
+
+resource "aws_glue_crawler" "star_schema_crawler" {
+  database_name = aws_glue_catalog_database.aws_glue_db.name
+  name          = "star-schema-crawler"
+  role          = data.aws_iam_role.lab_role.arn
+
+  s3_target {
+    path = "s3://${aws_s3_bucket.datalake.id}/transformed_data/fact_orders"
+  }
+  s3_target {
+    path = "s3://${aws_s3_bucket.datalake.id}/transformed_data/dim_customers"
+  }
+  s3_target {
+    path = "s3://${aws_s3_bucket.datalake.id}/transformed_data/dim_products"
+  }
+  s3_target {
+    path = "s3://${aws_s3_bucket.datalake.id}/transformed_data/dim_dates"
+  }
+  s3_target {
+    path = "s3://${aws_s3_bucket.datalake.id}/transformed_data/dim_countries"
+  }
+}
+
 output "rds_endpoint" {
   value = aws_db_instance.mysql_task.endpoint
 }
@@ -153,4 +179,12 @@ output "s3_bucket" {
 
 output "glue_job_name" {
   value = aws_glue_job.etl_job.name
+}
+
+output "glue_database" {
+  value = aws_glue_catalog_database.aws_glue_db.name
+}
+
+output "glue_crawler_name" {
+  value = aws_glue_crawler.star_schema_crawler.name
 }
