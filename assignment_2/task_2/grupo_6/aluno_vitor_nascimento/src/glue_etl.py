@@ -72,7 +72,9 @@ try:
     watermark_df = read_table("etl_watermark")
     watermark_row = watermark_df.filter(col("pipeline_name") == "classicmodels_sales").collect()
     
+    last_run_status = "NEVER_RUN"
     if watermark_row:
+        last_run_status = watermark_row[0]["last_run_status"]
         last_processed_date_val = watermark_row[0]["last_processed_order_date"]
         # Se for um objeto datetime.date, formatar como string
         if hasattr(last_processed_date_val, "strftime"):
@@ -82,7 +84,22 @@ try:
     else:
         last_processed_order_date = "1970-01-01"
     
-    print(f"Iniciando execucao incremental. Watermark atual: {last_processed_order_date}")
+    # Verificar se a tabela fato existe no S3
+    fact_output_path = f"{s3_output}/fact_orders"
+    s3_exists = False
+    try:
+        spark.read.parquet(fact_output_path).limit(1).collect()
+        s3_exists = True
+    except Exception:
+        s3_exists = False
+        
+    # Se for a primeira execucao ou se o S3 estiver vazio, forcamos o carregamento de todo o historico
+    if last_run_status == "NEVER_RUN" or not s3_exists:
+        print("Primeira execucao incremental ou S3 vazio detectado. Carregando todo o historico.")
+        last_processed_order_date_filter = "1970-01-01"
+    else:
+        print(f"Execucao incremental. Filtrando pedidos a partir de: {last_processed_order_date}")
+        last_processed_order_date_filter = last_processed_order_date
     
     # 2. Ler todas as tabelas necessarias (incluindo productlines e offices para atender ao requisito)
     customers = read_table("customers")
@@ -93,7 +110,7 @@ try:
     offices = read_table("offices")
     
     # Filtrar ordens incrementais
-    orders_delta = orders_all.filter(col("orderDate") > last_processed_order_date)
+    orders_delta = orders_all.filter(col("orderDate") > last_processed_order_date_filter)
     new_orders_count = orders_delta.count()
     print(f"Numero de novas ordens encontradas: {new_orders_count}")
     
