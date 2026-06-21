@@ -94,3 +94,14 @@ Abra o Jupyter Lab ou VS Code na raiz do projeto:
 jupyter lab
 ```
 E abra o arquivo `dashboard.ipynb`. Execute todas as células para rodar as consultas SQL exploratórias diretamente no Athena (usando `awswrangler`) e interagir com o painel de vendas interativo criado com `ipywidgets` e `seaborn`.
+
+---
+
+## `Task 2 - Detalhes do Pipeline Incremental e Agendamento`
+
+### 1. Tipo de Dados do Watermark
+A coluna `last_processed_order_date` na tabela `etl_watermark` é do tipo **`DATE`** do MySQL. A comparação no filtro do Spark SQL é feita convertendo essa data para string e comparando diretamente com a coluna `orderDate` da tabela `orders` (`orderDate > last_processed_order_date`).
+
+### 2. Agendamento e Permissões IAM (EventBridge → AWS Glue)
+- **Role do EventBridge**: Para acionar o Job do AWS Glue (`rds-to-s3-star-schema`), o AWS EventBridge utiliza a role **`LabRole`** (especificada como `role_arn` no target da regra do CloudWatch Event).
+- **Permissões Associadas**: No ambiente de laboratório (AWS Academy), a `LabRole` já possui a política gerenciada que contém a permissão necessária `glue:StartJobRun`. Além disso, a sua política de confiança (trust policy) permite que o serviço `events.amazonaws.com` assuma a role para executar o agendamento.

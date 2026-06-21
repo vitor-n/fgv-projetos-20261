@@ -169,6 +169,19 @@ resource "aws_glue_crawler" "star_schema_crawler" {
   }
 }
 
+resource "aws_cloudwatch_event_rule" "weekly_glue_trigger" {
+  name                = "weekly-glue-trigger"
+  description         = "Trigger Glue job weekly at noon on Mondays"
+  schedule_expression = "cron(0 12 ? * MON *)"
+}
+
+resource "aws_cloudwatch_event_target" "glue_target" {
+  rule      = aws_cloudwatch_event_rule.weekly_glue_trigger.name
+  target_id = "rds-to-s3-star-schema-target"
+  arn       = aws_glue_job.etl_job.arn
+  role_arn  = data.aws_iam_role.lab_role.arn
+}
+
 output "rds_endpoint" {
   value = aws_db_instance.mysql_task.endpoint
 }
