@@ -1,9 +1,13 @@
-## `Task 3`
+## `(A2) Task 1`
 
 ### Estrutura do Projeto
 
 ```text
 .
+├── scripts/
+│   ├── init_watermark.py              # Inicializa a tabela de watermark no RDS   (A2 - Task 1)
+│   ├── simulate_new_orders.py         # Simula a criação de novos pedidos no RDS  (A2 - Task 1)
+│   └── validate_incremental_source.py # Valida a origem incremental e o watermark (A2 - Task 1)
 ├── src/
 │   ├── loader.py        # Carga inicial do RDS
 │   ├── validate.py      # Validação da integridade do banco de origem
@@ -45,21 +49,32 @@ python src/loader.py
 python src/validate.py  # Valida se o RDS foi populado corretamente
 ```
 
-#### 4. Execução do ETL (Task 2)
+#### 4. Inicialização do Watermark (Task 1 - Assignment 2)
 
-Inicie o Job do Glue via Console da AWS ou CLI:
+Inicialize a tabela de controle `etl_watermark` no banco de dados (define a data inicial `last_processed_order_date` com o `MAX(orders.orderDate)` da carga histórica):
 ```bash
-aws glue start-job-run --job-name rds-to-s3-star-schema
+python scripts/init_watermark.py
 ```
 
-Aguarde o status do Job mudar para `SUCCEEDED`.
+#### 5. Validação Inicial da Origem
 
-#### 5. Validação do ETL (Task 2)
-
-Para garantir que os requisitos do item 4.6 foram atendidos, execute o script:
+Rode o script de validação para checar o baseline inicial da origem (deve passar com "Sem pedidos pendentes"):
 ```bash
-export S3_BUCKET_NAME="nome-do-seu-bucket"
-python src/validate_etl.py
+python scripts/validate_incremental_source.py
+```
+
+#### 6. Simulação de Carga Incremental
+
+Simule novos pedidos fictícios no banco RDS com datas estritamente posteriores ao watermark (aceita `--count` e `--seed`):
+```bash
+python scripts/simulate_new_orders.py --count 5 --seed 42
+```
+
+#### 7. Validação Final de Origem Incremental
+
+Rode a validação novamente para garantir que novos pedidos foram detectados e a estrutura está consistente (deve retornar exit code 0 e apontar que há novos dados para ETL):
+```bash
+python scripts/validate_incremental_source.py
 ```
 
 ---
