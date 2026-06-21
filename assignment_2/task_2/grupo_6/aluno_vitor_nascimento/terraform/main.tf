@@ -175,10 +175,24 @@ resource "aws_cloudwatch_event_rule" "weekly_glue_trigger" {
   schedule_expression = "cron(0 12 ? * MON *)"
 }
 
+resource "aws_glue_workflow" "etl_workflow" {
+  name = "rds-to-s3-star-schema-workflow"
+}
+
+resource "aws_glue_trigger" "workflow_start_trigger" {
+  name          = "rds-to-s3-star-schema-start-trigger"
+  type          = "EVENT"
+  workflow_name = aws_glue_workflow.etl_workflow.name
+
+  actions {
+    job_name = aws_glue_job.etl_job.name
+  }
+}
+
 resource "aws_cloudwatch_event_target" "glue_target" {
   rule      = aws_cloudwatch_event_rule.weekly_glue_trigger.name
   target_id = "rds-to-s3-star-schema-target"
-  arn       = aws_glue_job.etl_job.arn
+  arn       = aws_glue_workflow.etl_workflow.arn
   role_arn  = data.aws_iam_role.lab_role.arn
 }
 

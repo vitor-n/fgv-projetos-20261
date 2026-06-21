@@ -118,6 +118,7 @@ try:
         
     # Merge incremental da Fato
     fact_output_path = f"{s3_output}/fact_orders"
+    temp_output_path = f"{s3_output}/fact_orders_temp"
     try:
         existing_fact = spark.read.parquet(fact_output_path)
         if "order_year" not in existing_fact.columns:
@@ -127,11 +128,20 @@ try:
         
         merged_fact = existing_fact.unionByName(fact_orders_delta, allowMissingColumns=True) \
             .dropDuplicates(["order_id", "product_id"])
-    except Exception as e:
-        print(f"Tabela fato nao encontrada no S3 ou erro ao ler. Criando nova fato a partir do delta. Detalhe: {e}")
-        merged_fact = fact_orders_delta
         
-    merged_fact.write.mode("overwrite").partitionBy("order_year", "order_month").parquet(fact_output_path)
+        # Escrever para pasta temporaria para evitar ler e escrever no mesmo local simultaneamente
+        merged_fact.write.mode("overwrite").partitionBy("order_year", "order_month").parquet(temp_output_path)
+        
+        # Substituir a pasta original usando a API Hadoop FileSystem (JVM)
+        path_class = spark._jvm.org.apache.hadoop.fs.Path
+        fs = path_class(fact_output_path).getFileSystem(spark._jsc.hadoopConfiguration())
+        
+        # Deleta a pasta original e renomeia a temporaria
+        fs.delete(path_class(fact_output_path), True)
+        fs.rename(path_class(temp_output_path), path_class(fact_output_path))
+    except Exception as e:
+        print(f"Tabela fato nao encontrada no S3 ou erro ao processar merge. Criando nova fato a partir do delta. Detalhe: {e}")
+        fact_orders_delta.write.mode("overwrite").partitionBy("order_year", "order_month").parquet(fact_output_path)
     
     # 4. Processar e escrever dimensoes (sobregravacao completa - Opcao A)
     dim_customers = customers.select(
